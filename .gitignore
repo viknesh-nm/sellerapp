@@ -1,0 +1,5 @@
+sellerapp
+.vscode/*
+.metals/*
+glide.lock
+vendor/*

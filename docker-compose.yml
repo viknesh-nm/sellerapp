@@ -20,7 +20,7 @@ services:
     restart: always
     working_dir: /go/src/github.com/viknesh-nm/sellerapp
     env_file: ${GOPATH}/src/github.com/viknesh-nm/sellerapp/conf/conf.env
-    command: bob
+    command: go run main.go
     image: api
     ports: 
       - "9090:9090"

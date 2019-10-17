@@ -4,6 +4,8 @@ Steps to run:
 glide install
 ```
 
+Install glide from this [Link](https://glide.sh/)
+
 ```go
 docker-compose up --build
 ```
