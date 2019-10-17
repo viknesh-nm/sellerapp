@@ -1,0 +1,14 @@
+package: github.com/viknesh-nm/sellerapp
+import:
+- package: github.com/jinzhu/gorm
+  version: ^1.9.11
+  subpackages:
+  - dialects/mysql
+- package: github.com/labstack/echo
+  version: ^4.1.11
+- package: go.mongodb.org/mongo-driver
+  version: ^1.1.2
+  subpackages:
+  - bson
+  - mongo
+  - mongo/options
