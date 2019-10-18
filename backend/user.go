@@ -2,8 +2,10 @@ package backend
 
 import (
 	"context"
-	"database/sql"
+	"fmt"
 	"sort"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/viknesh-nm/sellerapp/domain"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,30 +15,8 @@ type users struct {
 	*Infra
 }
 
-type AuthAccess struct {
-	Auth struct {
-		AuthID       sql.NullString
-		AuthProvider sql.NullString
-		AuthName     sql.NullString
-	}
-	AuthID       string
-	AuthProvider string
-	AuthName     string
-
-	Access struct {
-		AccessName sql.NullString
-		View       sql.NullBool
-		Edit       sql.NullBool
-		Remove     sql.NullBool
-	}
-
-	AccessName string
-	View       bool
-	Edit       bool
-	Remove     bool
-}
-
-// UserList ...
+// UserList returns the entire user profile list
+// Search key by name has been implemented so far
 func (u users) UserList(req domain.UserRequest) ([]*domain.List, error) {
 
 	list := make(domain.UserList, 0)
@@ -64,7 +44,7 @@ func (u users) UserList(req domain.UserRequest) ([]*domain.List, error) {
 	return list, nil
 }
 
-// UserAccessList ...
+// UserAccessList returns the access data with the key of profile detail
 func (u users) UserAccessList(req domain.UserRequest) (map[domain.UserDetail][]domain.Access, error) {
 	var selectField = []string{
 		"profile.id",
@@ -73,6 +53,7 @@ func (u users) UserAccessList(req domain.UserRequest) (map[domain.UserDetail][]d
 		"profile.gender",
 		"profile.martial_status",
 		"profile.phone",
+		"profile.password",
 		"access.name AS access_name",
 		"view",
 		"edit",
@@ -96,42 +77,40 @@ func (u users) UserAccessList(req domain.UserRequest) (map[domain.UserDetail][]d
 
 	accessMap := make(map[domain.UserDetail][]domain.Access, 0)
 	for rows.Next() {
-		g := AuthAccess{}
-		tp := domain.UserDetail{}
+		tempAccess := domain.Access{}
+		temp := domain.UserDetail{}
 		err := rows.Scan(
-			&tp.ID,
-			&tp.Name,
-			&tp.Email,
-			&tp.Gender,
-			&tp.MartialStatus,
-			&tp.Phone,
-			&g.Access.AccessName,
-			&g.Access.View,
-			&g.Access.Edit,
-			&g.Access.Remove,
+			&temp.IDMysql,
+			&temp.Name,
+			&temp.Email,
+			&temp.Gender,
+			&temp.MartialStatus,
+			&temp.Phone,
+			&temp.Password,
+			&tempAccess.Access.AccessName,
+			&tempAccess.Access.View,
+			&tempAccess.Access.Edit,
+			&tempAccess.Access.Remove,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if g.Access.AccessName.Valid &&
-			g.Access.View.Valid && g.Access.Edit.Valid && g.Access.Remove.Valid {
-			g.AccessName = g.Access.AccessName.String
-			g.View = g.Access.View.Bool
-			g.Edit = g.Access.Edit.Bool
-			g.Remove = g.Access.Remove.Bool
+		temp.ID = fmt.Sprintf("%d", temp.IDMysql)
 
-			accessMap[tp] = append(
-				accessMap[tp],
-				domain.Access{
-					Name:   g.AccessName,
-					View:   g.View,
-					Edit:   g.Edit,
-					Remove: g.Remove,
-				},
+		if tempAccess.Access.AccessName.Valid &&
+			tempAccess.Access.View.Valid && tempAccess.Access.Edit.Valid && tempAccess.Access.Remove.Valid {
+			tempAccess.Name = tempAccess.Access.AccessName.String
+			tempAccess.View = tempAccess.Access.View.Bool
+			tempAccess.Edit = tempAccess.Access.Edit.Bool
+			tempAccess.Remove = tempAccess.Access.Remove.Bool
+
+			accessMap[temp] = append(
+				accessMap[temp],
+				tempAccess,
 			)
 		} else {
-			accessMap[tp] = make([]domain.Access, 0)
+			accessMap[temp] = make([]domain.Access, 0)
 		}
 
 	}
@@ -139,7 +118,7 @@ func (u users) UserAccessList(req domain.UserRequest) (map[domain.UserDetail][]d
 	return accessMap, nil
 }
 
-// UserAuthList ...
+// UserAuthList eturns the auth data with the key of profile detail
 func (u users) UserAuthList(req domain.UserRequest) (map[domain.UserDetail][]domain.Auth, error) {
 	var selectField = []string{
 		"profile.id",
@@ -148,6 +127,7 @@ func (u users) UserAuthList(req domain.UserRequest) (map[domain.UserDetail][]dom
 		"profile.gender",
 		"profile.martial_status",
 		"profile.phone",
+		"profile.password",
 		"auth_id",
 		"auth_provider",
 		"auth.name AS auth_name",
@@ -169,39 +149,38 @@ func (u users) UserAuthList(req domain.UserRequest) (map[domain.UserDetail][]dom
 
 	authMap := make(map[domain.UserDetail][]domain.Auth, 0)
 	for rows.Next() {
-		g := AuthAccess{}
-		tp := domain.UserDetail{}
+		temp := domain.UserDetail{}
+		tempAuth := domain.Auth{}
 		err := rows.Scan(
-			&tp.ID,
-			&tp.Name,
-			&tp.Email,
-			&tp.Gender,
-			&tp.MartialStatus,
-			&tp.Phone,
-			&g.Auth.AuthID,
-			&g.Auth.AuthProvider,
-			&g.Auth.AuthName,
+			&temp.IDMysql,
+			&temp.Name,
+			&temp.Email,
+			&temp.Gender,
+			&temp.MartialStatus,
+			&temp.Phone,
+			&temp.Password,
+			&tempAuth.Auth.AuthID,
+			&tempAuth.Auth.AuthProvider,
+			&tempAuth.Auth.AuthName,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if g.Auth.AuthID.Valid &&
-			g.Auth.AuthName.Valid && g.Auth.AuthProvider.Valid {
-			g.AuthID = g.Auth.AuthID.String
-			g.AuthName = g.Auth.AuthName.String
-			g.AuthProvider = g.Auth.AuthProvider.String
+		temp.ID = fmt.Sprintf("%d", temp.IDMysql)
 
-			authMap[tp] = append(
-				authMap[tp],
-				domain.Auth{
-					Provider: g.AuthProvider,
-					AuthID:   g.AuthID,
-					Name:     g.AuthName,
-				},
+		if tempAuth.Auth.AuthID.Valid &&
+			tempAuth.Auth.AuthName.Valid && tempAuth.Auth.AuthProvider.Valid {
+			tempAuth.AuthID = tempAuth.Auth.AuthID.String
+			tempAuth.Name = tempAuth.Auth.AuthName.String
+			tempAuth.Provider = tempAuth.Auth.AuthProvider.String
+
+			authMap[temp] = append(
+				authMap[temp],
+				tempAuth,
 			)
 		} else {
-			authMap[tp] = make([]domain.Auth, 0)
+			authMap[temp] = make([]domain.Auth, 0)
 		}
 
 	}
@@ -209,7 +188,7 @@ func (u users) UserAuthList(req domain.UserRequest) (map[domain.UserDetail][]dom
 	return authMap, nil
 }
 
-// MongoConvertions ...
+// MongoConvertions trasfers the aggregated list -> mongoDB "user" collection
 func (u users) MongoConvertions() error {
 	list, err := u.UserList(domain.UserRequest{})
 	if err != nil {
@@ -218,6 +197,7 @@ func (u users) MongoConvertions() error {
 
 	dataInsertion := make([]interface{}, 0)
 	for _, l := range list {
+		l.IDBson = primitive.NewObjectID()
 		dataInsertion = append(dataInsertion, l)
 	}
 
@@ -231,7 +211,7 @@ func (u users) MongoConvertions() error {
 	return nil
 }
 
-// UserListMongo ...
+// UserListMongo retuns the user list and error from mongoDB
 func (u users) UserListMongo(req domain.UserRequest) (domain.UserList, error) {
 	var (
 		filter = bson.M{}
@@ -259,6 +239,8 @@ func (u users) UserListMongo(req domain.UserRequest) (domain.UserList, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		temp.ID = temp.IDBson.Hex()
 
 		list = append(list, &temp)
 	}
